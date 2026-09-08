@@ -1,0 +1,107 @@
+# Holt wöchentlich die taktischen Zeichen von jonas-koeritz/Taktische-Zeichen.
+# Gibt es dort ein neueres Release, wird src/symbole.ts neu erzeugt, die
+# festgeschriebene Version im Holskript mitgezogen und — nur wenn Typecheck,
+# Lint und Tests grün sind — nach main committet.
+#
+# Anders als in der Fassung, die dieser Workflow im Erfassungsbogen hatte, wird
+# hier KEIN Release angestoßen. Die Produkte binden diesen Baustein als
+# Submodul auf einen festen Commit ein (ADR-003, Aufnahmeregel 6); ob und wann
+# sie dem neuen Stand folgen, entscheiden sie selbst.
+
+name: Sammlung aktualisieren
+
+on:
+  schedule:
+    # Montags 04:00 UTC — weit weg von den üblichen Arbeitszeiten.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  aktualisieren:
+    # Nicht in Forks laufen lassen — dort gibt es weder Release noch Rechte.
+    if: github.repository == 'wattnpapa/bos-taktische-zeichen'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Neueste Sammlungs-Version ermitteln
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NEU=$(gh release view --repo jonas-koeritz/Taktische-Zeichen --json tagName -q .tagName)
+          # Die festgeschriebene Version steht als einzige Stelle im Holskript.
+          ALT=$(grep -oE 'process\.argv\[2\] \?\? "[^"]+"' scripts/holen.mts | grep -oE '"[^"]+"' | tr -d '"')
+          echo "Sammlung: $NEU · eingebaut: $ALT"
+          echo "neu=$NEU" >> "$GITHUB_OUTPUT"
+          if [ "$NEU" = "$ALT" ]; then
+            echo "aenderung=nein" >> "$GITHUB_OUTPUT"
+            echo "Nichts zu tun." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "aenderung=ja" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.version.outputs.aenderung == 'ja'
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+        if: steps.version.outputs.aenderung == 'ja'
+
+      - name: Zeichen neu holen
+        if: steps.version.outputs.aenderung == 'ja'
+        id: holen
+        env:
+          NEU: ${{ steps.version.outputs.neu }}
+        run: |
+          set -euo pipefail
+          # Schlüsselliste vorher merken, um hinterher sagen zu können, welche
+          # Zeichen dazugekommen bzw. weggefallen sind.
+          grep -oE '^  "[^"]+":' src/symbole.ts | sort -u > /tmp/zeichen-alt.txt
+          npm run holen -- "$NEU"
+          # Festgeschriebene Version mitziehen, sonst holt ein lokales
+          # `npm run holen` wieder die alte Fassung.
+          sed -i -E "s|(process\.argv\[2\] \?\? \")[^\"]+(\")|\1$NEU\2|" scripts/holen.mts
+          grep -oE '^  "[^"]+":' src/symbole.ts | sort -u > /tmp/zeichen-neu.txt
+          if git diff --quiet; then
+            echo "Release $NEU enthält dieselben Zeichen — nur die Versionsangabe wäre neu."
+            echo "diff=nein" >> "$GITHUB_OUTPUT"
+          else
+            echo "diff=ja" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "## Taktische Zeichen $NEU"
+            echo "### Neu"
+            comm -13 /tmp/zeichen-alt.txt /tmp/zeichen-neu.txt | sed 's/^/- /' | head -100
+            echo "### Weggefallen"
+            comm -23 /tmp/zeichen-alt.txt /tmp/zeichen-neu.txt | sed 's/^/- /' | head -100
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Der eigentliche Wächter: die Tests in src/zeichen.test.ts laufen über
+      # die Zuordnungstabellen und schlagen an, wenn die Sammlung ein Zeichen
+      # umbenannt oder entfernt hat. Ohne sie ginge eine stille
+      # Verschlechterung durch — das Zeichen fiele lautlos aufs Grundzeichen
+      # zurück.
+      - run: npm run typecheck
+        if: steps.holen.outputs.diff == 'ja'
+      - run: npm run lint
+        if: steps.holen.outputs.diff == 'ja'
+      - run: npm test
+        if: steps.holen.outputs.diff == 'ja'
+
+      - name: Committen
+        if: steps.holen.outputs.diff == 'ja'
+        env:
+          NEU: ${{ steps.version.outputs.neu }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/holen.mts src/symbole.ts
+          git commit -m "Die taktischen Zeichen kommen jetzt aus Sammlung $NEU"
+          git push
