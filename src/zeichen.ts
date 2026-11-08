@@ -251,8 +251,10 @@ const FORMATION_NAMEN: { muster: RegExp; namen: string[] }[] = [
  * Anhänger hätte (Auflieger in allen Bauformen, Anh Plane/Spriegel, Anh BDF,
  * Anh ASH): die laufen über den Rückfallweg und bekommen dort ihr Kurzzeichen
  * aufgedruckt — ein beschriftetes Grundzeichen sagt mehr als ein namenloses.
- * Ebenso die Wechselbrücke (WB): Die Sammlung kennt sie nur auf dem Anhänger;
- * sie bekommt das Ladungsträger-Zeichen mit der Aufschrift „WB".
+ * Ebenso die Wechselbrücke (WB) und der Abrollbehälter Kraftstoff (ABK): Die
+ * Sammlung kennt die WB nur auf dem Anhänger und keinen Kraftstoff-Behälter;
+ * beide bekommen das Ladungsträger-Zeichen mit ihrem Kurzzeichen. Anh 12t
+ * Koffer und Anh 5t Tandem (FZ Log) tragen „12t K" bzw. „5t T".
  *
  * Wo etwas Ähnliches existiert, steht das nächstliegende Zeichen:
  * WLF Tank → Wechsellader (kein Tank-Abrollbehälter in der Sammlung),
@@ -302,9 +304,11 @@ export const THW_FAHRZEUG_ZEICHEN: Record<number, string> = {
   52: "Anhänger_SwPu_25000",
   53: "Anhänger_TWAA",
   56: "Anhänger_Kühl",
+  59: "Anhänger_Log-MW_2t",
   60: "Abrollbehälter_Container",
   62: "Container_10ft",
   63: "Container_20ft",
+  65: "Container_Werkstatt",
 };
 
 /**
@@ -362,6 +366,9 @@ export const THW_EINHEIT_ZEICHEN: Record<number, string> = {
   44: "FGr_Kommunikation_B",
   45: "Stab",
   46: "OV_Stab",
+  47: "FGr_Logistik_Materialerhaltungstrupp",
+  48: "FGr_Logistik_Materialwirtschaft_Verbrauchsgüterversorgungstrupp",
+  49: "Logistiktrupp", // Tr Log-TL: kein eigenes Zeichen in der Sammlung
 };
 
 // -------------------------------------------------------------- Fahrzeuge
@@ -374,7 +381,12 @@ export const THW_EINHEIT_ZEICHEN: Record<number, string> = {
  */
 function beschriftung(kurz: string): string | undefined {
   // Bauformen der Auflieger (Tr Log-TS): ausgeschrieben passen sie nicht ins Zeichen und blieben ununterscheidbar.
-  const bauform: Record<string, string> = { "auflieger plane/spriegel": "P/S", "auflieger plattform": "PF" };
+  const bauform: Record<string, string> = {
+    "auflieger plane/spriegel": "P/S",
+    "auflieger container": "Cont",
+    "anh 12t koffer": "12t K",
+    "anh 5t tandem": "5t T",
+  };
   const kurzform = bauform[kurz.trim().toLowerCase()];
   if (kurzform) return kurzform;
   const label = kurz.replace(/^anh\s+/i, "").trim();
@@ -420,6 +432,12 @@ export function fahrzeugZeichenSvg({ organisation, kurz, name, thwCode }: Zeiche
  * das das echte Fachgruppen-Zeichen; sonst die Formation passender Größe,
  * beschriftet mit dem Kurzzeichen.
  */
+/**
+ * Feste THW-Zeichen ohne eigene Aufschrift, die eine bekommen: Der Tr Log-TL hat
+ * in der Sammlung nur das allgemeine „Logistiktrupp"-Zeichen.
+ */
+const THW_EINHEIT_AUFSCHRIFT: Record<number, string> = { 49: "Log-TL" };
+
 export function einheitZeichenSvg({ organisation, kurz, name, thwCode }: Zeichenwahl): string {
   const zeichen = ORG_ZEICHEN[organisation] ?? ORG_ZEICHEN.sonstige;
   const fest = organisation === "thw" && thwCode != null ? THW_EINHEIT_ZEICHEN[thwCode] : undefined;
@@ -427,7 +445,11 @@ export function einheitZeichenSvg({ organisation, kurz, name, thwCode }: Zeichen
     fest ? `THW_Einheiten/${fest}` : undefined,
     suche(zeichen.einheiten, [kurz, name].filter(Boolean)),
   );
-  if (treffer) return einfaerben(treffer, zeichen.farbe);
+  if (treffer) {
+    const svg = einfaerben(treffer, zeichen.farbe);
+    const aufschrift = fest && thwCode != null ? THW_EINHEIT_AUFSCHRIFT[thwCode] : undefined;
+    return aufschrift ? beschriften(svg, aufschrift, zeichen.farbe) : svg;
+  }
 
   const text = `${kurz} ${name}`.toLowerCase();
   const formation = FORMATION_NAMEN.find((f) => f.muster.test(text));
