@@ -206,11 +206,13 @@ function beschriften(svg: string, text: string, farbe: string): string {
  * Wechsellader (z. B. „Anh …" schlägt ein enthaltenes „WLF" nicht),
  * Wasser vor „gl".
  */
-export type Grundzeichen = "anhaenger" | "wasserfahrzeug" | "wechsellader" | "kraftfahrzeug-gelaendegaengig" | "kraftfahrzeug";
+export type Grundzeichen = "anhaenger" | "ladungstraeger" | "wasserfahrzeug" | "wechsellader" | "kraftfahrzeug-gelaendegaengig" | "kraftfahrzeug";
 
 export function grundzeichenFuer(text: string): Grundzeichen {
   const t = text.toLowerCase();
   if (/\banh\b|anhänger|auflieger/.test(t)) return "anhaenger";
+  // Abrollbehälter, Wechselbrücke, Container: Ladungsträger ohne Fahrgestell (vor „wechsellader", das „WB" nicht kennt).
+  if (/\bab\b|abrollbehälter|\bwb\b|wechselbrücke|wechselbehälter|container|\bcont\b/.test(t)) return "ladungstraeger";
   if (/mzab|\bboot\b|wasserfahrzeug/.test(t)) return "wasserfahrzeug";
   if (/wlf|wechsellader/.test(t)) return "wechsellader";
   if (/\bgl\b|geländeg/.test(t)) return "kraftfahrzeug-gelaendegaengig";
@@ -220,6 +222,7 @@ export function grundzeichenFuer(text: string): Grundzeichen {
 /** Kandidaten je Grundzeichen — die Bereiche benennen dasselbe verschieden. */
 const GRUNDZEICHEN_NAMEN: Record<Grundzeichen, string[]> = {
   anhaenger: ["Anhänger", "Feuerwehranhänger"],
+  ladungstraeger: ["Abrollbehälter Container", "Anhänger"],
   wasserfahrzeug: ["Wasserfahrzeug", "Boot", "Feuerwehrboot"],
   wechsellader: ["Wechselladerfahrzeug"],
   "kraftfahrzeug-gelaendegaengig": ["Kraftfahrzeug geländegängig", "Kraftfahrzeug"],
@@ -245,9 +248,11 @@ const FORMATION_NAMEN: { muster: RegExp; namen: string[] }[] = [
  * THW-Fahrzeugtyp (Code aus THW_FAHRZEUGTYPEN) → Zeichen in THW_Fahrzeuge.
  *
  * Nicht aufgeführt sind die Typen, für die die Sammlung nur den nackten
- * Anhänger hätte (Auflieger, Anh Plane/Spriegel, Anh BDF, Anh ASH): die
- * laufen über den Rückfallweg und bekommen dort ihr Kurzzeichen aufgedruckt
- * — ein beschriftetes Grundzeichen sagt mehr als ein namenloses.
+ * Anhänger hätte (Auflieger in allen Bauformen, Anh Plane/Spriegel, Anh BDF,
+ * Anh ASH): die laufen über den Rückfallweg und bekommen dort ihr Kurzzeichen
+ * aufgedruckt — ein beschriftetes Grundzeichen sagt mehr als ein namenloses.
+ * Ebenso die Wechselbrücke (WB): Die Sammlung kennt sie nur auf dem Anhänger;
+ * sie bekommt das Ladungsträger-Zeichen mit der Aufschrift „WB".
  *
  * Wo etwas Ähnliches existiert, steht das nächstliegende Zeichen:
  * WLF Tank → Wechsellader (kein Tank-Abrollbehälter in der Sammlung),
@@ -282,6 +287,7 @@ export const THW_FAHRZEUG_ZEICHEN: Record<number, string> = {
   25: "MzKW",
   26: "MzGW",
   27: "MTW", // MTW OV: die Sammlung führt nur das allgemeine MTW-Zeichen
+  28: "LKW_K_Lkr",
   40: "Anhänger_2t",
   41: "Anhänger_K_1t",
   42: "Anhänger_FüLa",
@@ -295,6 +301,10 @@ export const THW_FAHRZEUG_ZEICHEN: Record<number, string> = {
   51: "Anhänger_SwPu_15000",
   52: "Anhänger_SwPu_25000",
   53: "Anhänger_TWAA",
+  56: "Anhänger_Kühl",
+  60: "Abrollbehälter_Container",
+  62: "Container_10ft",
+  63: "Container_20ft",
 };
 
 /**
@@ -363,6 +373,10 @@ export const THW_EINHEIT_ZEICHEN: Record<number, string> = {
  * volle Bezeichnung steht ohnehin in der Zelle daneben.
  */
 function beschriftung(kurz: string): string | undefined {
+  // Bauformen der Auflieger (Tr Log-TS): ausgeschrieben passen sie nicht ins Zeichen und blieben ununterscheidbar.
+  const bauform: Record<string, string> = { "auflieger plane/spriegel": "P/S", "auflieger plattform": "PF" };
+  const kurzform = bauform[kurz.trim().toLowerCase()];
+  if (kurzform) return kurzform;
   const label = kurz.replace(/^anh\s+/i, "").trim();
   return label.length > 0 && label.length <= 6 ? label : undefined;
 }
