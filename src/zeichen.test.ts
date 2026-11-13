@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   THW_EINHEIT_ZEICHEN,
   THW_FAHRZEUG_ZEICHEN,
+  ZEICHENFARBEN,
   einheitZeichenSvg,
   fahrzeugZeichenSvg,
   grundzeichenFuer,
@@ -199,5 +200,55 @@ describe("einheitZeichenSvg()", () => {
 describe("svgDataUrl()", () => {
   it("verpackt das SVG als data:-URL", () => {
     expect(svgDataUrl("<svg/>")).toBe("data:image/svg+xml;charset=utf-8,%3Csvg%2F%3E");
+  });
+});
+
+describe("fahrzeugZeichenSvg() mit abweichender Grundfarbe", () => {
+  const ORANGE = ZEICHENFARBEN.kommunal;
+  const GRAU = ZEICHENFARBEN.grau;
+
+  it("ohne Angabe bleibt die Farbe der Organisation", () => {
+    const svg = fahrzeugZeichenSvg({ organisation: "thw", kurz: "Anh 2t", name: "Anhänger 2 t", thwCode: 40 });
+    expect(svg).toContain('fill="#003399"');
+    expect(svg).not.toContain(ORANGE);
+  });
+
+  it("nimmt das Kommunalzeichen der Sammlung, wenn sie den Typ führt", () => {
+    const svg = fahrzeugZeichenSvg({ organisation: "thw", kurz: "MTW", name: "Mannschaftstransportwagen", thwCode: 24, farbe: "kommunal" });
+    expect(svg).toBe(TZ_SYMBOLE["Kommunal_Fahrzeuge/MTW"]);
+    expect(fahrzeugZeichenSvg({ organisation: "sonstige", kurz: "Anhänger", name: "Anhänger", farbe: "kommunal" })).toBe(
+      TZ_SYMBOLE["Kommunal_Fahrzeuge/Anhänger"],
+    );
+  });
+
+  it("färbt ein Organisationszeichen um: Fläche farbig, Rand und Schrift schwarz, ohne THW-Schriftzug", () => {
+    for (const [farbe, hex] of [["kommunal", ORANGE], ["grau", GRAU]] as const) {
+      const svg = fahrzeugZeichenSvg({ organisation: "thw", kurz: "Anh NEA 200 kVA", name: "Anhänger NEA 200 kVA", thwCode: 48, farbe });
+      expect(svg).toContain(`fill="${hex}"`);
+      expect(svg).not.toContain("#003399");
+      expect(svg).not.toMatch(/#FFFFFF/i);
+      expect(svg).not.toContain(">THW<");
+      expect(svg).toContain(">NEA<"); // der Typ bleibt erkennbar
+    }
+  });
+
+  it("färbt auch das beschriftete Rückfallzeichen jeder Organisation", () => {
+    for (const organisation of ORGANISATIONEN) {
+      const svg = fahrzeugZeichenSvg({ organisation, kurz: "Anh X1", name: "Sonderanhänger", farbe: "grau" });
+      expect(svg).toContain(`fill="${GRAU}"`);
+      expect(svg).toContain('fill="#000000" x="128" y="145">X1</text>');
+      expect(svg).not.toMatch(/stroke="#FFFFFF"/i);
+    }
+  });
+
+  it("Grau hat keinen eigenen Bereich und wird immer umgefärbt", () => {
+    const svg = fahrzeugZeichenSvg({ organisation: "feuerwehr", kurz: "MTW", name: "Mannschaftstransportwagen", farbe: "grau" });
+    expect(svg).toContain(`fill="${GRAU}"`);
+    expect(svg).not.toContain("#FF0000");
+  });
+
+  it("Einheitenzeichen kennen keine abweichende Farbe", () => {
+    const mit = einheitZeichenSvg({ organisation: "thw", kurz: "B", name: "Bergungsgruppe", thwCode: 4, farbe: "kommunal" });
+    expect(mit).toBe(einheitZeichenSvg({ organisation: "thw", kurz: "B", name: "Bergungsgruppe", thwCode: 4 }));
   });
 });

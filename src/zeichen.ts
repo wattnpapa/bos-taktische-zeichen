@@ -181,6 +181,52 @@ function einfaerben(svg: string, farbe: string): string {
   );
 }
 
+/**
+ * Abweichende Grundfarbe eines Fahrzeugzeichens — für Gerät, das eine Einheit
+ * führt, das ihr aber nicht gehört: der Anhänger der Gemeinde, der
+ * Abrollbehälter des Havariekommandos. Ohne Angabe gilt die Farbe der
+ * Organisation.
+ *
+ * „kommunal" ist das Orange, in dem die Sammlung ihre Kommunalfahrzeuge
+ * zeichnet (Bereich `Kommunal_Fahrzeuge`); „grau" hat dort kein Vorbild und
+ * ist für alles Übrige gedacht (Behörden, Firmen, Leihgerät).
+ */
+export type Zeichenfarbe = "kommunal" | "grau";
+
+/** Füllfarbe je Variante; Rand und Schrift sind in beiden schwarz. */
+export const ZEICHENFARBEN: Record<Zeichenfarbe, string> = {
+  kommunal: "#E26E0E",
+  grau: "#A6A6A6",
+};
+
+/** Bereich der Sammlung, der eine Variante fertig gezeichnet mitbringt. */
+const FARB_BEREICH: Partial<Record<Zeichenfarbe, string>> = {
+  kommunal: "Kommunal_Fahrzeuge",
+};
+
+/**
+ * Zeichnet ein fertiges Zeichen in einer abweichenden Grundfarbe, im Stil der
+ * Kommunalfahrzeuge der Sammlung: farbige Fläche, Rand und Schrift schwarz.
+ *
+ * Ein neutrales Zeichen bekommt nur die Fläche gefärbt. In einem
+ * Organisationszeichen ist Weiß die Kontrastfarbe (Rand, Schrift, Deichsel)
+ * und wird zu Schwarz. Der Schriftzug der Organisation unten rechts entfällt:
+ * das Gerät gehört ihr gerade nicht.
+ */
+function umfaerben(svg: string, farbe: string): string {
+  let neutral = false;
+  const gefaerbt = svg.replace(/<(?:path|rect|ellipse|polygon)\b[^>]*clip-path="url\(#symbol\)"[^>]*\/>/, (element) =>
+    element.replace(/fill="(#[0-9A-Fa-f]{6})"/, (_, alt: string) => {
+      neutral = alt.toUpperCase() === NEUTRAL;
+      return `fill="${farbe}"`;
+    }),
+  );
+  if (neutral) return gefaerbt;
+  return gefaerbt
+    .replace(/<text\b[^>]*text-anchor: end;[^>]*>THW<\/text>/g, "")
+    .replace(/(fill|stroke)="#FFFFFF"/gi, '$1="#000000"');
+}
+
 function xmlText(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
@@ -406,10 +452,31 @@ export interface Zeichenwahl {
   kurz: string;
   name: string;
   thwCode?: number;
+  /** Abweichende Grundfarbe (nur Fahrzeuge); fehlt = Farbe der Organisation. */
+  farbe?: Zeichenfarbe;
 }
 
-/** Taktisches Zeichen eines Fahrzeugs als (pdfmake-taugliches) SVG. */
-export function fahrzeugZeichenSvg({ organisation, kurz, name, thwCode }: Zeichenwahl): string {
+/**
+ * Taktisches Zeichen eines Fahrzeugs als (pdfmake-taugliches) SVG.
+ *
+ * Mit `farbe` wird dasselbe Zeichen in der abweichenden Grundfarbe gezeichnet.
+ * Führt die Sammlung den Typ in dieser Farbe selbst (Kommunalfahrzeuge), gilt
+ * ihr Zeichen; sonst wird das Zeichen der Organisation umgefärbt, damit ein
+ * „Anh SwPu" auch in Orange als solcher zu erkennen bleibt.
+ */
+export function fahrzeugZeichenSvg({ organisation, kurz, name, thwCode, farbe }: Zeichenwahl): string {
+  const variante = farbe != null ? ZEICHENFARBEN[farbe] : undefined;
+  if (farbe != null && variante) {
+    const bereich = FARB_BEREICH[farbe];
+    const eigenes = bereich ? holen(suche([bereich], [kurz, name].filter(Boolean))) : "";
+    if (eigenes) return eigenes;
+    return umfaerben(organisationsZeichen({ organisation, kurz, name, thwCode }), variante);
+  }
+  return organisationsZeichen({ organisation, kurz, name, thwCode });
+}
+
+/** Das Fahrzeugzeichen in der Farbe der Organisation (die drei Stufen aus dem Dateikopf). */
+function organisationsZeichen({ organisation, kurz, name, thwCode }: Zeichenwahl): string {
   const zeichen = ORG_ZEICHEN[organisation] ?? ORG_ZEICHEN.sonstige;
   const fest = organisation === "thw" && thwCode != null ? THW_FAHRZEUG_ZEICHEN[thwCode] : undefined;
   const treffer = holen(

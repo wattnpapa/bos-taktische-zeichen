@@ -46,6 +46,28 @@ Die Organisation ist ein eigener Schlüssel — `"thw"`, `"feuerwehr"`,
 stand: Bundespolizei zeichnet wie Polizei, und die Hilfsorganisationen zeichnen
 gemeinsam im Rettungswesen, wo die Zeichen neutral gehalten sind.
 
+## Gerät in fremder Farbe: `farbe`
+
+Eine Einheit führt oft Gerät, das ihr nicht gehört: den Anhänger der Gemeinde,
+den Abrollbehälter des Havariekommandos. Dafür nimmt `fahrzeugZeichenSvg`
+optional eine abweichende Grundfarbe entgegen:
+
+```js
+fahrzeugZeichenSvg({ organisation: "thw", kurz: "Anh SwPu 15000", name: "…", thwCode: 51, farbe: "kommunal" });
+```
+
+| `farbe` | Fläche | Herkunft |
+| --- | --- | --- |
+| `"kommunal"` | `#E26E0E` | das Orange des Bereichs `Kommunal_Fahrzeuge` der Sammlung |
+| `"grau"` | `#A6A6A6` | kein Vorbild in der Sammlung; für Behörden, Firmen, Leihgerät |
+
+Rand und Schrift sind in beiden Varianten schwarz, wie bei den
+Kommunalfahrzeugen der Sammlung. Führt die Sammlung den Typ in der Farbe selbst
+(MTW, Anhänger, Mehrzweckarbeitsboot … in Orange), gilt ihr Zeichen. Sonst wird
+das Zeichen der Organisation umgefärbt, der „Anh SwPu" bleibt also als solcher
+erkennbar; der Schriftzug „THW" unten rechts entfällt dabei. Ohne `farbe`
+ändert sich nichts. Einheitenzeichen kennen die Angabe nicht.
+
 ## Herkunft und Lizenz der Zeichen
 
 Die Zeichen in `src/symbole.ts` stammen aus der Sammlung
