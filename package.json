@@ -29,7 +29,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --reporter=verbose",
     "lint": "eslint .",
-    "holen": "node --import tsx scripts/holen.mts"
+    "holen": "node --import tsx scripts/holen.mts",
+    "katalog:holen": "node --import tsx scripts/katalog-holen.mts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -77,6 +77,33 @@ auf vorhandene Zeichen zeigen. Ohne sie fiele ein umbenanntes Zeichen lautlos
 aufs Grundzeichen zurück. Wöchentlich macht das
 `.github/workflows/sammlung-aktualisieren.yml` von selbst.
 
+## Vollständiger Katalog: `@bos/taktische-zeichen/katalog`
+
+Für Anwendungen, die Zeichen frei auswählen lassen (komplan.app), gibt es
+einen eigenen Einstiegspunkt mit **allen** Ordnern der Sammlung
+(Führungsstellen, Einrichtungen, Fernmeldewesen, Personen, Gefahren …):
+
+```js
+import { KATALOG, ordnerLaden, katalogSvg } from "@bos/taktische-zeichen/katalog";
+
+await ordnerLaden("Führungsstellen");
+katalogSvg("Führungsstellen/EAL"); // SVG-Quelltext, 256 × 256
+```
+
+- `KATALOG` verzeichnet Schlüssel, Titel und Ordner aller Zeichen, ohne die
+  SVG-Quelltexte zu laden (für Suche und Listen).
+- Die Quelltexte liegen je Ordner in `src/katalog/ordner/*.ts` und werden per
+  `import()` nachgeladen; Bundler machen daraus eigene Teile. Danach liefert
+  `katalogSvg` synchron.
+- Der Katalog wird **nicht** aus `index.ts` exportiert. Wer nur
+  `fahrzeugZeichenSvg` braucht, bekommt ihn nicht ins Bundle
+  (Aufnahmeregel 5).
+- Anders als `src/symbole.ts` bleibt der Schriftname „Roboto Slab" stehen;
+  die Schrift bindet der Konsument ein.
+
+Erzeugt von `npm run katalog:holen` aus derselben festgeschriebenen Version
+wie `npm run holen`; der Wochen-Workflow zieht beides gemeinsam nach.
+
 ## Aufnahmeregeln (ADR-003)
 
 1. Aufnahme nur, wenn beide Produkte den Baustein aufrufen.
@@ -108,4 +135,4 @@ taktische-zeichen → meldekopf. Ausführlich im README von eeb-format.
 
 ## Lizenz
 
-Code: EUPL-1.2 · Zeichen in `src/symbole.ts`: CC BY 4.0, © Jonas Köritz
+Code: EUPL-1.2 · Zeichen in `src/symbole.ts` und `src/katalog/`: © Jonas Köritz (laut Projekt: fertige Zeichen CC0 1.0, Quellcode CC BY 4.0; die Namensnennung wird in jedem Fall mitgeführt)
