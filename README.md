@@ -77,6 +77,23 @@ auf vorhandene Zeichen zeigen. Ohne sie fiele ein umbenanntes Zeichen lautlos
 aufs Grundzeichen zurück. Wöchentlich macht das
 `.github/workflows/sammlung-aktualisieren.yml` von selbst.
 
+## Einzelne Personen: `personZeichenSvg`
+
+Fachberater/innen, Technische Berater/innen und andere, die ohne Einheit
+anrücken, bekommen keine Formation, sondern die Raute „Person mit
+Sonderfunktion" in der Farbe der Organisation:
+
+```js
+import { personZeichenSvg } from "@bos/taktische-zeichen/zeichen";
+
+personZeichenSvg({ organisation: "thw", kurz: "BFB", name: "Baufachberater/in" });
+```
+
+Das Zeichen wird gezeichnet, nicht aus der Sammlung geholt (dort ist es für
+jede Funktion dieselbe Raute mit anderer Aufschrift). Die Aufschrift wählt
+`personAufschrift`: BFB, TeBe, FaBe und BÖ für die bekannten Sonderfunktionen,
+sonst das Kurzzeichen, solange es in die Raute passt.
+
 ## Vollständiger Katalog: `@bos/taktische-zeichen/katalog`
 
 Für Anwendungen, die Zeichen frei auswählen lassen (komplan.app), gibt es
