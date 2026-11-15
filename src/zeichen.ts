@@ -525,6 +525,66 @@ export function einheitZeichenSvg({ organisation, kurz, name, thwCode }: Zeichen
   return kurz.length > 0 && kurz.length <= 10 ? beschriften(svg, kurz, zeichen.farbe) : svg;
 }
 
+// ---------------------------------------------------------------- Personen
+
+/**
+ * Aufschrift im Personenzeichen. Bekannte Sonderfunktionen bekommen das
+ * Kurzzeichen, das auch die Zeichensammlung in ihre Rauten schreibt (BFB,
+ * TeBe); sonst das Kurzzeichen der Funktion bzw. sein erstes Wort, solange es
+ * in die Raute passt. Ohne passende Aufschrift bleibt die Raute leer — die
+ * Bezeichnung steht ohnehin daneben.
+ */
+export function personAufschrift(kurz: string, name: string): string | undefined {
+  const text = `${kurz} ${name}`.toLowerCase();
+  if (/baufachberat|\bbfb\b/.test(text)) return "BFB";
+  if (/technische\S* berat|\btebe|\btb\b/.test(text)) return "TeBe";
+  if (/fachberat|\bfabe/.test(text)) return "FaBe";
+  if (/öffentlichkeitsarbeit|(?:^|\s)bö(?:\s|$)/.test(text)) return "BÖ";
+  const ganz = kurz.trim();
+  const erstesWort = ganz.split(/\s+/)[0] ?? "";
+  return [ganz, erstesWort].find((k) => k.length > 0 && k.length <= 6);
+}
+
+/** Was als Person gezeichnet werden soll — Organisation und Bezeichnung der Funktion. */
+export interface Personenwahl {
+  organisation: Zeichenorganisation;
+  /** Kurzzeichen der Funktion („BFB", „TeBe ABC"); leer, wenn es keins gibt. */
+  kurz: string;
+  /** Ausgeschriebene Funktion („Baufachberater/in"). */
+  name: string;
+}
+
+/**
+ * Taktisches Zeichen einer einzelnen Person mit Sonderfunktion (DV 102: Raute
+ * mit Querstrich in der oberen Spitze) — für Fachberater/innen, Technische
+ * Berater/innen und andere, die ohne Einheit anrücken.
+ *
+ * Gezeichnet statt aus der Sammlung geholt: deren Personenzeichen sind alle
+ * dieselbe Raute mit anderer Aufschrift, und sie gibt es nur für wenige
+ * Funktionen des THW. Maße, Strichstärken und Schrift sind die der Sammlung
+ * (THW_Personen/Baufachberater bzw. Personen/Person_mit_Sonderfunktion), das
+ * Ergebnis ist für die dort vorhandenen Zeichen deckungsgleich.
+ */
+export function personZeichenSvg({ organisation, kurz, name }: Personenwahl): string {
+  const farbe = (ORG_ZEICHEN[organisation] ?? ORG_ZEICHEN.sonstige).farbe;
+  const neutral = farbe === NEUTRAL;
+  const aufschrift = personAufschrift(kurz, name);
+  const schrift = neutral ? "#000000" : "#FFFFFF";
+  const koerper = neutral
+    ? '<path d="M64,128 L128,64 L192,128 L128,192 Z" stroke-width="5" stroke="none" fill="#FFFFFF"/>' +
+      '<path d="M152,88 L104,88" stroke-width="5" stroke="#000000"/>' +
+      '<path d="M64,128 L128,64 L192,128 L128,192 Z" stroke-width="5" stroke="#000000" fill="none"/>'
+    : `<path d="M69,128 L128,69 L187,128 L128,187 Z" stroke-width="5" stroke="#FFFFFF" fill="${farbe}"/>` +
+      '<path d="M147,88 L108,88" stroke-width="5" stroke="#FFFFFF"/>' +
+      '<path d="M64,128 L128,64 L192,128 L128,192 Z" stroke-width="2" stroke="#000000" fill="none"/>';
+  // Bis vier Zeichen in der Schriftgröße der Sammlung, längere kleiner — die Raute wird zu den Spitzen hin eng.
+  const groesse = aufschrift && aufschrift.length > 4 ? 22 : 32;
+  const text = aufschrift
+    ? `<text x="128" y="${groesse === 32 ? 140 : 136}" style="font-family: 'Roboto'; font-weight: bold; text-anchor: middle; font-size: ${groesse}px;" fill="${schrift}">${xmlText(aufschrift)}</text>`
+    : "";
+  return `<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">${koerper}${text}</svg>`;
+}
+
 /** SVG-String → data:-URL für <img>-Anzeige in der Oberfläche. */
 export function svgDataUrl(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;

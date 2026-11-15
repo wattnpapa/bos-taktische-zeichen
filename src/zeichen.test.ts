@@ -6,6 +6,8 @@ import {
   einheitZeichenSvg,
   fahrzeugZeichenSvg,
   grundzeichenFuer,
+  personAufschrift,
+  personZeichenSvg,
   svgDataUrl,
   type Zeichenorganisation,
 } from "./zeichen.js";
@@ -250,5 +252,36 @@ describe("fahrzeugZeichenSvg() mit abweichender Grundfarbe", () => {
   it("Einheitenzeichen kennen keine abweichende Farbe", () => {
     const mit = einheitZeichenSvg({ organisation: "thw", kurz: "B", name: "Bergungsgruppe", thwCode: 4, farbe: "kommunal" });
     expect(mit).toBe(einheitZeichenSvg({ organisation: "thw", kurz: "B", name: "Bergungsgruppe", thwCode: 4 }));
+  });
+});
+
+describe("Personenzeichen (Einzelperson mit Sonderfunktion)", () => {
+  it("zeichnet eine Raute mit Querstrich statt einer Formation", () => {
+    const svg = personZeichenSvg({ organisation: "thw", kurz: "BFB", name: "Baufachberater/in" });
+    expect(svg).toContain("M64,128 L128,64 L192,128 L128,192 Z");
+    expect(svg).toContain('fill="#003399"');
+    expect(svg).toContain(">BFB</text>");
+    expect(svg).not.toContain("<rect");
+  });
+
+  it("bleibt für Organisationen ohne eigene Farbe neutral (weiß, schwarze Schrift)", () => {
+    const svg = personZeichenSvg({ organisation: "hilfsorganisation", kurz: "", name: "Fachberater Betreuung" });
+    expect(svg).toContain('fill="#FFFFFF"');
+    expect(svg).toContain('fill="#000000">FaBe</text>');
+  });
+
+  it("wählt die Aufschrift: bekannte Sonderfunktion, sonst kurzes Kurzzeichen, sonst keine", () => {
+    expect(personAufschrift("TB Ortung", "Technische/r Berater/in Ortung")).toBe("TeBe");
+    expect(personAufschrift("TeBeDe", "Technische/r Berater/in Deichverteidigung")).toBe("TeBe");
+    expect(personAufschrift("FaBe 1/2", "Fachberater/in Stufe 1 und 2")).toBe("FaBe");
+    expect(personAufschrift("", "Fachberater CBRN")).toBe("FaBe");
+    expect(personAufschrift("BÖ", "Beauftragte/r für Öffentlichkeitsarbeit")).toBe("BÖ");
+    expect(personAufschrift("LNA", "Leitender Notarzt")).toBe("LNA");
+    expect(personAufschrift("SGL Log", "Sachgebietsleiter/in Logistik")).toBe("SGL");
+    expect(personAufschrift("", "Verbindungsperson Energieversorger")).toBeUndefined();
+  });
+
+  it("maskiert Sonderzeichen in der Aufschrift", () => {
+    expect(personZeichenSvg({ organisation: "sonstige", kurz: "A&B", name: "" })).toContain(">A&amp;B</text>");
   });
 });
